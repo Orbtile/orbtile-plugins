@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${PLUGIN_ROOT}/skills/orbtile-status/scripts/orbtile.sh\" codex session-start",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

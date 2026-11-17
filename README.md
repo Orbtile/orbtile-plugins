@@ -5,11 +5,12 @@ Starter plugins that help you set up [Orbtile](https://orbtile.com) for your cod
 | Agent | Plugin | Install |
 |---|---|---|
 | Claude Code | [`orbtile-start`](claude/orbtile-start) | `/plugin marketplace add Orbtile/orbtile-plugins` then `/plugin install orbtile-start@orbtile-public` |
+| Codex | [`orbtile-start`](codex/orbtile-start) | `codex plugin marketplace add Orbtile/orbtile-plugins` then `codex plugin add orbtile-start@orbtile-public` |
 
 ## Tests
 
 ```
-sh tests/test_claude_orbtile_sh.sh
+sh tests/test_orbtile_sh.sh
 ```
 
 ## License

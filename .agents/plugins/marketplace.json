@@ -1,0 +1,15 @@
+{
+  "name": "orbtile-public",
+  "interface": {
+    "displayName": "Orbtile"
+  },
+  "plugins": [
+    {
+      "name": "orbtile-start",
+      "source": {
+        "source": "local",
+        "path": "./codex/orbtile-start"
+      }
+    }
+  ]
+}

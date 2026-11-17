@@ -1,0 +1,132 @@
+#!/bin/sh
+# Tests for shared/orbtile.sh and the copies the plugins carry. Runs in temp folders only; never reads your real
+# settings. Usage: sh tests/test_orbtile_sh.sh
+here=$(cd "$(dirname "$0")/.." && pwd)
+script="$here/shared/orbtile.sh"
+fails=0
+pass=0
+ok() { pass=$((pass+1)); }
+bad() { fails=$((fails+1)); echo "FAIL $*"; }
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# run <agent> <case-name> <config text or ""> [extra env assignments...] -> stdout of session-start.
+# The config text goes to Claude's settings.json or Codex's hooks.json.
+run() {
+    agent=$1; name=$2; config=$3; shift 3
+    d="$tmp/$agent-$name"
+    mkdir -p "$d/home" "$d/config" "$d/apps" "$d/data"
+    case "$agent" in
+        claude) file="$d/config/settings.json"; dirvar="CLAUDE_CONFIG_DIR=$d/config"; datavar="CLAUDE_PLUGIN_DATA=$d/data" ;;
+        codex) file="$d/config/hooks.json"; dirvar="CODEX_HOME=$d/config"; datavar="PLUGIN_DATA=$d/data" ;;
+    esac
+    [ -n "$config" ] && printf '%s\n' "$config" > "$file"
+    env -i PATH="/usr/bin:/bin:/usr/sbin:/sbin" HOME="$d/home" "$dirvar" "$datavar" ORBTILE_START_APPS_DIR="$d/apps" "$@" \
+        sh "$script" "$agent" session-start
+}
+
+expect_silent() { if [ -z "$2" ]; then ok; else bad "$1: expected silence, got: $2"; fi; }
+
+# expect_message <case> <output> <substring>: one valid JSON object whose systemMessage holds <substring>.
+expect_message() {
+    if printf '%s' "$2" | python3 -I -c 'import json,sys; d=json.load(sys.stdin); assert list(d)==["systemMessage"]; assert sys.argv[1] in d["systemMessage"]' "$3" 2>/dev/null
+    then ok; else bad "$1: expected a systemMessage with '$3', got: $2"; fi
+}
+
+dl="https://orbtile.com/download"
+
+# --- Claude Code: ~/.claude/settings.json
+expect_message claude-no-settings "$(run claude no-settings '')" "$dl"
+expect_message claude-no-settings-name "$(run claude no-settings2 '')" "Claude Code sessions"
+expect_message claude-empty-object "$(run claude empty-object '{}')" "$dl"
+expect_silent claude-mac-plugin-on "$(run claude mac-plugin-on '{
+  "enabledPlugins": {
+    "orbtile@orbtile": true
+  }
+}')"
+expect_message claude-mac-plugin-off "$(run claude mac-plugin-off '{"enabledPlugins": {"orbtile@orbtile": false}}')" "$dl"
+expect_silent claude-enterprise-on "$(run claude enterprise-on '{"enabledPlugins":{"orbtile-enterprise@orbtile-enterprise":true}}')"
+expect_silent claude-sandbox-on "$(run claude sandbox-on '{"enabledPlugins":{"orbtile-sandbox@orbtile-sandbox":true}}')"
+expect_silent claude-mac-marketplace-path "$(run claude mac-marketplace-path '{
+  "extraKnownMarketplaces": {
+    "orbtile": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/u/Library/Application Support/Orbtile/claude-plugin"
+      }
+    }
+  }
+}')"
+expect_silent claude-remote-marketplace-path "$(run claude remote-marketplace-path '{"extraKnownMarketplaces":{"orbtile":{"source":{"source":"directory","path":"/home/u/.local/share/orbtile/claude-plugin"}}}}')"
+expect_silent claude-windows-hooks "$(run claude windows-hooks '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"\"C:/Program Files/Orbtile/Orbtile.HookHelper.exe\" --orbtile-claude-hook"}]}]}}')"
+# Its own entry, or a look-alike name, must not count as Orbtile being set up.
+expect_message claude-only-starter "$(run claude only-starter '{"enabledPlugins":{"orbtile-start@orbtile-public":true}}')" "$dl"
+expect_message claude-lookalike "$(run claude lookalike '{"enabledPlugins":{"xorbtile@orbtile":true,"orbtile@orbtile-public":true}}')" "$dl"
+expect_message claude-broken-json "$(run claude broken-json '{"enabledPlugins": {"orbtile@orbt')" "$dl"
+# A Codex marker in Claude's settings does not count, and the other way round (below).
+expect_message claude-codex-marker "$(run claude codex-marker '{"x":"orbtile-codex-hook"}')" "$dl"
+
+# --- Codex: ~/.codex/hooks.json
+expect_message codex-no-hooks "$(run codex no-hooks '')" "$dl"
+expect_message codex-no-hooks-name "$(run codex no-hooks2 '')" "Codex sessions"
+expect_silent codex-mac-hooks "$(run codex mac-hooks '{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "\"/Users/u/Library/Application Support/Orbtile/bin/orbtile-codex-hook\" SessionStart", "timeout": 3 } ] }
+    ]
+  }
+}')"
+expect_silent codex-remote-hooks "$(run codex remote-hooks '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/home/u/.local/share/orbtile/remote-agents/orbtile-codex-hook Stop"}]}]}}')"
+expect_silent codex-windows-hooks "$(run codex windows-hooks '{"hooks":{"Stop":[{"hooks":[{"type":"process","command":"C:/Program Files/Orbtile/Orbtile.HookHelper.exe","args":["--orbtile-agent","codex","--event","Stop"]}]}]}}')"
+expect_message codex-other-hooks "$(run codex other-hooks '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/usr/local/bin/notify Stop"}]}]}}')" "$dl"
+expect_message codex-claude-marker "$(run codex claude-marker '{"enabledPlugins":{"orbtile@orbtile":true}}')" "$dl"
+
+# --- Shared behaviour, per agent
+for a in claude codex; do
+    # Once a day: the second start in the same state folder is silent.
+    first=$(run $a once-a-day '')
+    second=$(run $a once-a-day '')
+    expect_message $a-once-a-day-first "$first" "$dl"
+    expect_silent $a-once-a-day-second "$second"
+
+    # App installed but not connected: a different line, no download link.
+    mkdir -p "$tmp/$a-app-installed/apps/Orbtile.app"
+    out=$(run $a app-installed '')
+    expect_message $a-app-installed "$out" "installed but not connected"
+    case "$out" in *"$dl"*) bad "$a-app-installed: should not show the download link";; *) ok;; esac
+
+    # Unwritable state folder: still shows, still exits 0.
+    case $a in claude) v=CLAUDE_PLUGIN_DATA;; codex) v=PLUGIN_DATA;; esac
+    out=$(run $a no-state '' "$v=/nonexistent/forbidden"); code=$?
+    expect_message $a-no-state "$out" "$dl"
+    [ "$code" -eq 0 ] && ok || bad "$a-no-state: exit $code"
+done
+
+# --- status
+st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/claude-mac-plugin-on/home" CLAUDE_CONFIG_DIR="$tmp/claude-mac-plugin-on/config" \
+    ORBTILE_START_APPS_DIR="$tmp/claude-mac-plugin-on/apps" sh "$script" claude status)
+case "$st" in *"Claude Code integration: on (plugin orbtile@orbtile"*) ok;; *) bad "claude-status-on: $st";; esac
+st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/claude-no-settings/home" CLAUDE_CONFIG_DIR="$tmp/claude-no-settings/config" \
+    ORBTILE_START_APPS_DIR="$tmp/claude-no-settings/apps" sh "$script" claude status)
+case "$st" in *"integration: off"*"Next step: download Orbtile from $dl"*) ok;; *) bad "claude-status-off: $st";; esac
+st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/codex-mac-hooks/home" CODEX_HOME="$tmp/codex-mac-hooks/config" \
+    ORBTILE_START_APPS_DIR="$tmp/codex-mac-hooks/apps" sh "$script" codex status)
+case "$st" in *"Codex integration: on (Orbtile hooks"*"trust them once in /hooks"*"Next step: none"*) ok;; *) bad "codex-status-on: $st";; esac
+
+# --- Bad arguments never fail
+env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" >/dev/null 2>&1 && ok || bad "no-args exit code"
+env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" gemini session-start >/dev/null 2>&1 && ok || bad "unknown agent exit code"
+
+# --- Plugin copies match the shared script
+for copy in claude/orbtile-start/scripts/orbtile.sh codex/orbtile-start/skills/orbtile-status/scripts/orbtile.sh; do
+    if cmp -s "$script" "$here/$copy"; then ok; else bad "$copy differs from shared/orbtile.sh (copy it again)"; fi
+done
+
+# --- Public copy rules: no em-dash anywhere in what ships
+if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/README.md"; then
+    bad "em-dash in shipped files"
+else ok; fi
+
+echo "passed $pass, failed $fails"
+[ "$fails" -eq 0 ]
