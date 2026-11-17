@@ -5,7 +5,7 @@
 #   orbtile.sh <agent> session-start   Session-start hook: at most one line a day pointing to the Orbtile app,
 #                                      nothing once Orbtile's own integration for <agent> is set up.
 #   orbtile.sh <agent> status          Plain-text setup check.
-#   <agent>: claude | codex | antigravity
+#   <agent>: claude | codex | antigravity | zcode
 #
 # Reads local files only. Sends nothing anywhere. Always exits 0 so it can never block a session.
 
@@ -48,8 +48,17 @@ case "$agent" in
         done_line="Next step: none. Orbtile is set up. You can remove the orbtile-start plugin from Antigravity."
         hooks_optional="Orbtile reads Antigravity sessions without them"  # zero-install adapter in the app
         ;;
+    zcode)
+        agent_name="ZCode"
+        pitch="Orbtile shows your ZCode tasks live on a keypad"
+        config_file="$HOME/.zcode/cli/config.json"
+        state_dir="${ZCODE_PLUGIN_DATA:-}"
+        check_hint="ask ZCode to check your Orbtile setup"
+        done_line="Next step: none. Orbtile is set up. You can remove the orbtile-start plugin from ZCode."
+        hooks_optional="Orbtile follows ZCode tasks from their files without them"  # read-only adapter; one optional approval hook
+        ;;
     *)
-        echo "usage: orbtile.sh claude|codex|antigravity session-start|status" >&2
+        echo "usage: orbtile.sh claude|codex|antigravity|zcode session-start|status" >&2
         exit 0
         ;;
 esac
@@ -84,6 +93,12 @@ hook_marker() {
         antigravity)
             # Mac app: orbtile-antigravity-hook; Windows app: --orbtile-agent.
             if printf '%s' "$text" | grep -Eq -- 'orbtile(-[a-z]+)?-antigravity-hook|--orbtile-agent'; then
+                echo "Orbtile hooks"; return 0
+            fi
+            ;;
+        zcode)
+            # The app's one approval hook. Mac app and remote hosts: orbtile-zcode-hook; Windows app: --orbtile-agent.
+            if printf '%s' "$text" | grep -Eq -- 'orbtile(-[a-z]+)?-zcode-hook|--orbtile-agent'; then
                 echo "Orbtile hooks"; return 0
             fi
             ;;
@@ -167,6 +182,6 @@ status() {
 case "$command" in
     session-start) session_start ;;
     status) status ;;
-    *) echo "usage: orbtile.sh claude|codex|antigravity session-start|status" >&2 ;;
+    *) echo "usage: orbtile.sh claude|codex|antigravity|zcode session-start|status" >&2 ;;
 esac
 exit 0

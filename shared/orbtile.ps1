@@ -1,11 +1,11 @@
 # Orbtile starter script for Windows shells without sh (Codex runs hooks with cmd.exe on Windows).
 # Source of truth: shared/orbtile.ps1. The Codex plugin carries an identical copy (tests check this).
-# Same behaviour and wording as shared/orbtile.sh for Codex and Antigravity on Windows.
+# Same behaviour and wording as shared/orbtile.sh for Codex, Antigravity and ZCode on Windows.
 #
 #   orbtile.ps1 <agent> session-start   Session-start hook: at most one line a day pointing to the Orbtile app,
 #                                       nothing once the Orbtile app is installed or its hooks are set up.
 #   orbtile.ps1 <agent> status          Plain-text setup check.
-#   <agent>: codex | antigravity (both are followed by the app without hooks)
+#   <agent>: codex | antigravity | zcode (all followed by the app without hooks)
 #
 # Reads local files only. Sends nothing anywhere. Always exits 0 so it can never block a session.
 
@@ -13,8 +13,8 @@ param([string]$Agent = '', [string]$Command = '')
 $ErrorActionPreference = 'SilentlyContinue'
 $downloadUrl = 'https://orbtile.com/download'
 
-if (($Agent -ne 'codex' -and $Agent -ne 'antigravity') -or ($Command -ne 'session-start' -and $Command -ne 'status')) {
-    [Console]::Error.WriteLine('usage: orbtile.ps1 codex|antigravity session-start|status')
+if (($Agent -ne 'codex' -and $Agent -ne 'antigravity' -and $Agent -ne 'zcode') -or ($Command -ne 'session-start' -and $Command -ne 'status')) {
+    [Console]::Error.WriteLine('usage: orbtile.ps1 codex|antigravity|zcode session-start|status')
     exit 0
 }
 
@@ -25,12 +25,21 @@ if ($Agent -eq 'codex') {
     $pitch = 'Orbtile shows your Codex sessions live on a keypad'
     $checkHint = 'ask Codex to check your Orbtile setup'
     $doneLine = 'Next step: none. Orbtile is set up; this starter plugin stays quiet and can be removed with: codex plugin remove orbtile-start@orbtile-public'
+    $hooksOptional = 'Orbtile reads Codex sessions without them'
+} elseif ($Agent -eq 'zcode') {
+    $agentName = 'ZCode'
+    $configFile = Join-Path $env:USERPROFILE '.zcode\cli\config.json'
+    $pitch = 'Orbtile shows your ZCode tasks live on a keypad'
+    $checkHint = 'ask ZCode to check your Orbtile setup'
+    $doneLine = 'Next step: none. Orbtile is set up. You can remove the orbtile-start plugin from ZCode.'
+    $hooksOptional = 'Orbtile follows ZCode tasks from their files without them'
 } else {
     $agentName = 'Antigravity'
     $configFile = Join-Path $env:USERPROFILE '.gemini\config\hooks.json'
     $pitch = 'Orbtile shows your Antigravity sessions live on a keypad'
     $checkHint = 'ask Antigravity to check your Orbtile setup'
     $doneLine = 'Next step: none. Orbtile is set up. You can remove the orbtile-start plugin from Antigravity.'
+    $hooksOptional = 'Orbtile reads Antigravity sessions without them'
 }
 
 # Orbtile's hooks for this agent: the Windows app's helper (--orbtile-agent), or the Mac app's script name.
@@ -72,7 +81,7 @@ $app = Get-AppPath
 [Console]::Out.WriteLine("Orbtile setup check for $agentName")
 if ($app) { [Console]::Out.WriteLine("- Orbtile app: found at $app") } else { [Console]::Out.WriteLine('- Orbtile app: not found on this computer') }
 if ($marker) { [Console]::Out.WriteLine("- Orbtile's $agentName hooks: on ($marker in $configFile)") }
-else { [Console]::Out.WriteLine("- Orbtile's $agentName hooks: off (optional: Orbtile reads $agentName sessions without them)") }
+else { [Console]::Out.WriteLine("- Orbtile's $agentName hooks: off (optional: $hooksOptional)") }
 if ($marker -or $app) {
     if ($marker -and $Agent -eq 'codex') { [Console]::Out.WriteLine("- Note: Codex runs Orbtile's hooks only after you trust them once in /hooks (Settings > Hooks in the Codex app).") }
     [Console]::Out.WriteLine($doneLine)

@@ -79,15 +79,39 @@ if ($st -match 'found at' -and $st -match 'hooks: off' -and $st -match 'Next ste
 $st = RunAg 'codex-marker' '{"x":"orbtile-codex-hook"}'
 if ($st -match 'Antigravity hooks: off' -and $st -match 'Next step: download') { Ok } else { Bad "ag-codex-marker: $st" }
 
+# ZCode (skills only, so status only): %USERPROFILE%\.zcode\cli\config.json
+function RunZc([string]$name, [string]$config, [switch]$app) {
+    $d = Join-Path $tmp "zc-$name"
+    foreach ($sub in 'home\.zcode\cli', 'local') { New-Item -ItemType Directory -Force -Path (Join-Path $d $sub) | Out-Null }
+    if ($config) { Set-Content -LiteralPath (Join-Path $d 'home\.zcode\cli\config.json') -Value $config -Encoding ascii }
+    if ($app) { New-Item -ItemType Directory -Force -Path (Join-Path $d 'local\Orbtile') | Out-Null }
+    $saved = @{ USERPROFILE = $env:USERPROFILE; LOCALAPPDATA = $env:LOCALAPPDATA }
+    $env:USERPROFILE = Join-Path $d 'home'; $env:LOCALAPPDATA = Join-Path $d 'local'
+    try { $out = (& powershell -NoProfile -ExecutionPolicy Bypass -File $script zcode status | Out-String).Trim(); $code = $LASTEXITCODE }
+    finally { foreach ($k in $saved.Keys) { Set-Item -Path "env:$k" -Value $saved[$k] } }
+    if ($code -ne 0) { Bad "zc-$name exit code $code" }
+    return $out
+}
+$zcWinHook = '{"hooks":{"events":{"PermissionRequest":[{"hooks":[{"type":"process","command":"C:/Program Files/Orbtile/Orbtile.HookHelper.exe","args":["--orbtile-agent","zcode","--event","PermissionRequest","--wait","approval"]}]}]}}}'
+$st = RunZc 'no-app' ''
+if ($st -match '^Orbtile setup check for ZCode' -and $st -match [regex]::Escape("ZCode hooks: off (optional: Orbtile follows ZCode tasks from their files without them)") -and $st -match [regex]::Escape("Next step: download Orbtile from $dl")) { Ok } else { Bad "zc-no-app: $st" }
+$st = RunZc 'hook' $zcWinHook
+if ($st -match [regex]::Escape("Orbtile's ZCode hooks: on (Orbtile hooks in") -and $st -match [regex]::Escape('Next step: none. Orbtile is set up. You can remove the orbtile-start plugin from ZCode.')) { Ok } else { Bad "zc-hook: $st" }
+$st = RunZc 'app' '' -app
+if ($st -match 'found at' -and $st -match 'hooks: off' -and $st -match 'Next step: none') { Ok } else { Bad "zc-app: $st" }
+# Codex and Antigravity keep their own optional-hooks wording.
+$st = RunAg 'wording' ''
+if ($st -match [regex]::Escape('(optional: Orbtile reads Antigravity sessions without them)')) { Ok } else { Bad "ag-wording: $st" }
+
 # bad arguments never fail (their usage line on stderr is expected, so stderr must not stop this test)
 $ErrorActionPreference = 'Continue'
-foreach ($a in @(@(), @('gemini', 'session-start'), @('codex', 'nope'), @('antigravity', 'nope'))) {
+foreach ($a in @(@(), @('gemini', 'session-start'), @('codex', 'nope'), @('antigravity', 'nope'), @('zcode', 'nope'))) {
     & powershell -NoProfile -ExecutionPolicy Bypass -File $script @a 2>$null | Out-Null
     if ($LASTEXITCODE -eq 0) { Ok } else { Bad "bad args '$($a -join ' ')': exit $LASTEXITCODE" }
 }
 
 # The plugin copies match the shared script
-foreach ($plugin in 'codex', 'antigravity') {
+foreach ($plugin in 'codex', 'antigravity', 'zcode') {
     $copy = Join-Path $here "$plugin\orbtile-start\skills\orbtile-status\scripts\orbtile.ps1"
     if ((Get-FileHash $script).Hash -eq (Get-FileHash $copy).Hash) { Ok } else { Bad "$plugin plugin copy of orbtile.ps1 differs from shared/orbtile.ps1" }
 }

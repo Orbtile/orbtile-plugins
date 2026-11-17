@@ -205,6 +205,54 @@ then ok; else bad "antigravity/orbtile-start/plugin.json or its logo"; fi
 # No hooks of its own: the Antigravity starter only answers when asked.
 if [ -e "$here/antigravity/orbtile-start/hooks.json" ] || [ -e "$here/antigravity/orbtile-start/hooks" ]; then bad "antigravity plugin ships hooks"; else ok; fi
 
+# --- ZCode: ~/.zcode/cli/config.json. Skills only; Orbtile reads ZCode task files, plus one optional approval hook.
+zc_status() {
+    name=$1; config=$2; shift 2
+    d="$tmp/zcode-$name"
+    mkdir -p "$d/home/.zcode/cli" "$d/apps"
+    [ -n "$config" ] && printf '%s\n' "$config" > "$d/home/.zcode/cli/config.json"
+    env -i PATH="/usr/bin:/bin" HOME="$d/home" ORBTILE_START_APPS_DIR="$d/apps" ORBTILE_START_OS=Darwin "$@" sh "$script" zcode status
+}
+zc_mac_hook='{"hooks":{"enabled":true,"events":{"PermissionRequest":[{"hooks":[{"type":"process","command":"/Users/u/Library/Application Support/Orbtile/bin/orbtile-zcode-hook","args":["PermissionRequest"]}]}]}}}'
+st=$(zc_status no-app '')
+case "$st" in "Orbtile setup check for ZCode"*"not found on this computer"*"ZCode hooks: off (optional: Orbtile follows ZCode tasks from their files without them)"*"Next step: download Orbtile from $dl") ok;; *) bad "zcode-status-no-app: $st";; esac
+st=$(zc_status mac-hook "$zc_mac_hook")
+case "$st" in *"Orbtile's ZCode hooks: on (Orbtile hooks in"*"Next step: none. Orbtile is set up. You can remove the orbtile-start plugin from ZCode.") ok;; *) bad "zcode-status-mac-hook: $st";; esac
+st=$(zc_status windows-hook '{"hooks":{"events":{"PermissionRequest":[{"hooks":[{"type":"process","command":"C:/Program Files/Orbtile/Orbtile.HookHelper.exe","args":["--orbtile-agent","zcode","--event","PermissionRequest","--wait","approval"]}]}]}}}' ORBTILE_START_OS=MINGW64_NT-10.0-26100)
+case "$st" in *"ZCode hooks: on"*"Next step: none"*) ok;; *) bad "zcode-status-windows-hook: $st";; esac
+mkdir -p "$tmp/zcode-app/apps/Orbtile.app"
+st=$(zc_status app '')
+case "$st" in *"found at"*"hooks: off (optional"*"Next step: none. Orbtile is set up."*) ok;; *) bad "zcode-status-app: $st";; esac
+st=$(zc_status other-hook '{"hooks":{"events":{"Stop":[{"hooks":[{"type":"process","command":"orbtile-antigravity-hook"}]}]}}}')
+case "$st" in *"ZCode hooks: off"*"Next step: download"*) ok;; *) bad "zcode-status-other-agent-marker: $st";; esac
+st=$(zc_status linux-none '' ORBTILE_START_OS=Linux)
+case "$st" in *"not on this system"*"Next step: none here. Orbtile runs on macOS and Windows."*) ok;; *) bad "zcode-status-linux: $st";; esac
+case "$st" in *download*) bad "zcode-status-linux: mentions a download";; *) ok;; esac
+# A Linux host the Mac app set up over SSH (remote ZCode hook) reports the hook as on.
+st=$(zc_status linux-remote '{"hooks":{"events":{"PermissionRequest":[{"hooks":[{"type":"process","command":"/home/u/.local/share/orbtile/remote-agents/orbtile-zcode-hook"}]}]}}}' ORBTILE_START_OS=Linux)
+case "$st" in *"ZCode hooks: on"*"Next step: none. Orbtile is set up"*) ok;; *) bad "zcode-status-linux-remote: $st";; esac
+
+# ZCode plugin manifest: the fields zai-org/zcode-plugins requires, both READMEs, no hooks.
+if python3 -I - "$here/zcode/orbtile-start" <<'PY'
+import json, os, re, sys
+root = sys.argv[1]
+m = json.load(open(os.path.join(root, ".zcode-plugin", "plugin.json")))
+for k in ("name", "description", "version", "author"):
+    assert m.get(k), k
+assert re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", m["name"]) and m["name"] == "orbtile-start"
+assert m["description_i18n"]["en"] == m["description"] and m["description_i18n"]["zh-CN"]
+assert m["author"]["name"] == "Orbtile Team"
+for f in ("README.md", "README_CN.md", "LICENSE", "skills/orbtile-status/SKILL.md"):
+    assert os.path.isfile(os.path.join(root, f)), f
+assert not os.path.exists(os.path.join(root, "hooks"))
+PY
+then ok; else bad "zcode/orbtile-start manifest or files"; fi
+[ -x "$here/zcode/orbtile-start/skills/orbtile-status/scripts/orbtile.sh" ] && ok || bad "zcode copy of orbtile.sh is not executable"
+# Versions match across the plugins.
+v=$(grep -h '"version"' "$here/.claude-plugin/marketplace.json" "$here/claude/orbtile-start/.claude-plugin/plugin.json" "$here/codex/orbtile-start/.codex-plugin/plugin.json" \
+    "$here/antigravity/orbtile-start/plugin.json" "$here/zcode/orbtile-start/.zcode-plugin/plugin.json" | tr -d ' ,' | sort -u | wc -l)
+[ "$v" -eq 1 ] && ok || bad "plugin versions differ"
+
 # --- Codex hook wrapper (shared/orbtile-hook.cmd): one file that sh and cmd both run. Codex starts it as
 # "<path> <PLUGIN_DATA>" (PowerShell on Windows does not get PLUGIN_DATA in its environment).
 wrapper="$here/shared/orbtile-hook.cmd"
@@ -230,17 +278,18 @@ env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" gemini session-start >/dev/
 
 # --- Plugin copies match the shared script
 for copy in claude/orbtile-start/scripts/orbtile.sh codex/orbtile-start/skills/orbtile-status/scripts/orbtile.sh \
-            antigravity/orbtile-start/skills/orbtile-status/scripts/orbtile.sh; do
+            antigravity/orbtile-start/skills/orbtile-status/scripts/orbtile.sh zcode/orbtile-start/skills/orbtile-status/scripts/orbtile.sh; do
     if cmp -s "$script" "$here/$copy"; then ok; else bad "$copy differs from shared/orbtile.sh (copy it again)"; fi
 done
 if cmp -s "$here/shared/orbtile-hook.cmd" "$here/codex/orbtile-start/skills/orbtile-status/scripts/orbtile-hook.cmd"; then ok
 else bad "codex/orbtile-start/skills/orbtile-status/scripts/orbtile-hook.cmd differs from shared/orbtile-hook.cmd (copy it again)"; fi
-for copy in codex/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1 antigravity/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1; do
+for copy in codex/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1 antigravity/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1 \
+            zcode/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1; do
     if cmp -s "$here/shared/orbtile.ps1" "$here/$copy"; then ok; else bad "$copy differs from shared/orbtile.ps1 (copy it again)"; fi
 done
 
 # --- Public copy rules: no em-dash anywhere in what ships
-if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/antigravity" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/README.md"; then
+if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/antigravity" "$here/zcode" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/README.md"; then
     bad "em-dash in shipped files"
 else ok; fi
 
