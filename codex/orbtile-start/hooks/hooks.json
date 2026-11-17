@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${PLUGIN_ROOT}/skills/orbtile-status/scripts/orbtile.sh\" codex session-start",
-            "timeout": 5
+            "command": "${PLUGIN_ROOT}/skills/orbtile-status/scripts/orbtile-hook.cmd ${PLUGIN_DATA}",
+            "timeout": 10
           }
         ]
       }

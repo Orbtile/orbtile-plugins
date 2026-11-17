@@ -13,6 +13,12 @@ Starter plugins that help you set up [Orbtile](https://orbtile.com) for your cod
 sh tests/test_orbtile_sh.sh
 ```
 
+On Windows:
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\test_orbtile_ps1.ps1
+```
+
 ## License
 
 MIT. Made by Orbtile Team.

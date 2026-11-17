@@ -146,6 +146,25 @@ expect_message claude-windows-app "$(run claude windows-app '' ORBTILE_START_OS=
 mkdir -p "$tmp/codex-windows-app/home/AppData/Local/Orbtile"
 expect_silent codex-windows-app "$(run codex windows-app '' ORBTILE_START_OS=MINGW64_NT-10.0-26100 LOCALAPPDATA="$tmp/codex-windows-app/home/AppData/Local")"
 
+# --- Codex hook wrapper (shared/orbtile-hook.cmd): one file that sh and cmd both run. Codex starts it as
+# "<path> <PLUGIN_DATA>" (PowerShell on Windows does not get PLUGIN_DATA in its environment).
+wrapper="$here/shared/orbtile-hook.cmd"
+[ -x "$wrapper" ] && ok || bad "orbtile-hook.cmd is not executable (chmod +x, and commit the mode)"
+[ -x "$here/codex/orbtile-start/skills/orbtile-status/scripts/orbtile-hook.cmd" ] && ok || bad "plugin copy of orbtile-hook.cmd is not executable"
+w="$tmp/wrapper"; mkdir -p "$w/home" "$w/codex" "$w/apps" "$w/data"
+out=$(env -i PATH="/usr/bin:/bin" HOME="$w/home" CODEX_HOME="$w/codex" ORBTILE_START_APPS_DIR="$w/apps" ORBTILE_START_OS=Darwin \
+    sh -c '"$0" "$1"' "$wrapper" "$w/data"); code=$?
+expect_message wrapper-message "$out" "$dl"
+[ "$code" -eq 0 ] && ok || bad "wrapper exit $code"
+[ -f "$w/data/last-shown-day" ] && ok || bad "wrapper did not use the data folder argument"
+out=$(env -i PATH="/usr/bin:/bin" HOME="$w/home" CODEX_HOME="$w/codex" ORBTILE_START_APPS_DIR="$w/apps" ORBTILE_START_OS=Darwin \
+    sh -c '"$0" "$1"' "$wrapper" "$w/data")
+expect_silent wrapper-second "$out"
+mkdir -p "$w/apps/Orbtile.app"; rm -f "$w/data/last-shown-day"
+out=$(env -i PATH="/usr/bin:/bin" HOME="$w/home" CODEX_HOME="$w/codex" ORBTILE_START_APPS_DIR="$w/apps" ORBTILE_START_OS=Darwin \
+    sh -c '"$0" "$1"' "$wrapper" "$w/data")
+expect_silent wrapper-app-installed "$out"
+
 # --- Bad arguments never fail
 env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" >/dev/null 2>&1 && ok || bad "no-args exit code"
 env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" gemini session-start >/dev/null 2>&1 && ok || bad "unknown agent exit code"
@@ -154,6 +173,10 @@ env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" gemini session-start >/dev/
 for copy in claude/orbtile-start/scripts/orbtile.sh codex/orbtile-start/skills/orbtile-status/scripts/orbtile.sh; do
     if cmp -s "$script" "$here/$copy"; then ok; else bad "$copy differs from shared/orbtile.sh (copy it again)"; fi
 done
+if cmp -s "$here/shared/orbtile-hook.cmd" "$here/codex/orbtile-start/skills/orbtile-status/scripts/orbtile-hook.cmd"; then ok
+else bad "codex/orbtile-start/skills/orbtile-status/scripts/orbtile-hook.cmd differs from shared/orbtile-hook.cmd (copy it again)"; fi
+if cmp -s "$here/shared/orbtile.ps1" "$here/codex/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1"; then ok
+else bad "codex/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1 differs from shared/orbtile.ps1 (copy it again)"; fi
 
 # --- Public copy rules: no em-dash anywhere in what ships
 if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/README.md"; then

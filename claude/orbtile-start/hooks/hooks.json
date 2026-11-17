@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/orbtile.sh\" claude session-start",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/orbtile.sh\" claude session-start",
             "timeout": 5
           }
         ]

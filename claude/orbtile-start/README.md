@@ -29,7 +29,7 @@ A small starter for [Orbtile](https://orbtile.com), the app that shows the live 
 
 ## Requirements
 
-macOS, where the Orbtile app runs. Uses only `sh`, `grep`, `tr` and `date`. On other systems the starter stays quiet.
+macOS or Windows, where the Orbtile app runs. On Windows it runs in the Git Bash that Claude Code uses. On other systems the starter stays quiet.
 
 ## License
 

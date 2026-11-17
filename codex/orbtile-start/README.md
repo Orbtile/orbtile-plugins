@@ -29,7 +29,9 @@ codex plugin remove orbtile-start@orbtile-public
 
 ## Requirements
 
-macOS, where the Orbtile app runs. Uses only `sh`, `grep`, `tr` and `date`. On other systems the starter stays quiet.
+macOS or Windows, where the Orbtile app runs. On macOS it uses `sh`; on Windows it uses PowerShell. On other systems the starter stays quiet.
+
+The session-start line needs a home folder path without spaces. The `orbtile-status` skill works either way.
 
 ## License
 
