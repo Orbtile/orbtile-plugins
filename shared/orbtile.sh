@@ -5,7 +5,7 @@
 #   orbtile.sh <agent> session-start   Session-start hook: at most one line a day pointing to the Orbtile app,
 #                                      nothing once Orbtile's own integration for <agent> is set up.
 #   orbtile.sh <agent> status          Plain-text setup check.
-#   <agent>: claude | codex
+#   <agent>: claude | codex | antigravity
 #
 # Reads local files only. Sends nothing anywhere. Always exits 0 so it can never block a session.
 
@@ -27,7 +27,7 @@ case "$agent" in
         config_file="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
         state_dir="${CLAUDE_PLUGIN_DATA:-}"
         check_hint="run /orbtile to check setup"
-        remove_hint="/plugin uninstall orbtile-start@orbtile-public"
+        done_line="Next step: none. Orbtile is set up; this starter plugin stays quiet and can be removed with: /plugin uninstall orbtile-start@orbtile-public"
         hooks_optional=""
         ;;
     codex)
@@ -36,11 +36,20 @@ case "$agent" in
         config_file="${CODEX_HOME:-$HOME/.codex}/hooks.json"
         state_dir="${PLUGIN_DATA:-}"
         check_hint="ask Codex to check your Orbtile setup"
-        remove_hint="codex plugin remove orbtile-start@orbtile-public"
+        done_line="Next step: none. Orbtile is set up; this starter plugin stays quiet and can be removed with: codex plugin remove orbtile-start@orbtile-public"
         hooks_optional="Orbtile reads Codex sessions without them"  # Codex is a zero-install adapter in the app
         ;;
+    antigravity)
+        agent_name="Antigravity"
+        pitch="Orbtile shows your Antigravity sessions live on a keypad"
+        config_file="$HOME/.gemini/config/hooks.json"
+        state_dir=""
+        check_hint="ask Antigravity to check your Orbtile setup"
+        done_line="Next step: none. Orbtile is set up. You can remove the orbtile-start plugin from Antigravity."
+        hooks_optional="Orbtile reads Antigravity sessions without them"  # zero-install adapter in the app
+        ;;
     *)
-        echo "usage: orbtile.sh claude|codex session-start|status" >&2
+        echo "usage: orbtile.sh claude|codex|antigravity session-start|status" >&2
         exit 0
         ;;
 esac
@@ -69,6 +78,12 @@ hook_marker() {
         codex)
             # Mac app and remote hosts: orbtile-codex-hook; Windows app: --orbtile-agent.
             if printf '%s' "$text" | grep -Eq -- 'orbtile(-[a-z]+)?-codex-hook|--orbtile-agent'; then
+                echo "Orbtile hooks"; return 0
+            fi
+            ;;
+        antigravity)
+            # Mac app: orbtile-antigravity-hook; Windows app: --orbtile-agent.
+            if printf '%s' "$text" | grep -Eq -- 'orbtile(-[a-z]+)?-antigravity-hook|--orbtile-agent'; then
                 echo "Orbtile hooks"; return 0
             fi
             ;;
@@ -136,7 +151,7 @@ status() {
         if [ "$agent" = "codex" ] && [ -n "$marker" ]; then
             echo "- Note: Codex runs Orbtile's hooks only after you trust them once in /hooks (Settings > Hooks in the Codex app)."
         fi
-        echo "Next step: none. Orbtile is set up; this starter plugin stays quiet and can be removed with: $remove_hint"
+        echo "$done_line"
     elif [ -n "$app" ]; then
         echo "Next step: open Orbtile and connect $agent_name in its settings."
     elif [ "$platform" = other ]; then
@@ -149,6 +164,6 @@ status() {
 case "$command" in
     session-start) session_start ;;
     status) status ;;
-    *) echo "usage: orbtile.sh claude|codex session-start|status" >&2 ;;
+    *) echo "usage: orbtile.sh claude|codex|antigravity session-start|status" >&2 ;;
 esac
 exit 0

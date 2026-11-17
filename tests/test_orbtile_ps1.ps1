@@ -56,16 +56,41 @@ if ($st -match 'found at' -and $st -match [regex]::Escape("hooks: off (optional:
 $st = Run 'status-hooks' $winHooks 'status'
 if ($st -match [regex]::Escape("Orbtile's Codex hooks: on (Orbtile hooks in") -and $st -match 'trust them once in /hooks' -and $st -match 'Next step: none') { Ok } else { Bad "status-hooks: $st" }
 
+# Antigravity (skills only, so status only): %USERPROFILE%\.gemini\config\hooks.json
+function RunAg([string]$name, [string]$hooks, [switch]$app) {
+    $d = Join-Path $tmp "ag-$name"
+    foreach ($sub in 'home\.gemini\config', 'local') { New-Item -ItemType Directory -Force -Path (Join-Path $d $sub) | Out-Null }
+    if ($hooks) { Set-Content -LiteralPath (Join-Path $d 'home\.gemini\config\hooks.json') -Value $hooks -Encoding ascii }
+    if ($app) { New-Item -ItemType Directory -Force -Path (Join-Path $d 'local\Orbtile') | Out-Null }
+    $saved = @{ USERPROFILE = $env:USERPROFILE; LOCALAPPDATA = $env:LOCALAPPDATA }
+    $env:USERPROFILE = Join-Path $d 'home'; $env:LOCALAPPDATA = Join-Path $d 'local'
+    try { $out = (& powershell -NoProfile -ExecutionPolicy Bypass -File $script antigravity status | Out-String).Trim(); $code = $LASTEXITCODE }
+    finally { foreach ($k in $saved.Keys) { Set-Item -Path "env:$k" -Value $saved[$k] } }
+    if ($code -ne 0) { Bad "ag-$name exit code $code" }
+    return $out
+}
+$agWinHooks = '{"orbtile-status":{"Stop":[{"type":"process","command":"C:/Program Files/Orbtile/Orbtile.HookHelper.exe","args":["--orbtile-agent","antigravity","--event","Stop"]}]}}'
+$st = RunAg 'no-app' ''
+if ($st -match '^Orbtile setup check for Antigravity' -and $st -match [regex]::Escape("Antigravity hooks: off (optional: Orbtile reads Antigravity sessions without them)") -and $st -match [regex]::Escape("Next step: download Orbtile from $dl")) { Ok } else { Bad "ag-no-app: $st" }
+$st = RunAg 'hooks' $agWinHooks
+if ($st -match [regex]::Escape("Orbtile's Antigravity hooks: on (Orbtile hooks in") -and $st -match [regex]::Escape('Next step: none. Orbtile is set up. You can remove the orbtile-start plugin from Antigravity.') -and $st -notmatch 'trust them') { Ok } else { Bad "ag-hooks: $st" }
+$st = RunAg 'app' '' -app
+if ($st -match 'found at' -and $st -match 'hooks: off' -and $st -match 'Next step: none') { Ok } else { Bad "ag-app: $st" }
+$st = RunAg 'codex-marker' '{"x":"orbtile-codex-hook"}'
+if ($st -match 'Antigravity hooks: off' -and $st -match 'Next step: download') { Ok } else { Bad "ag-codex-marker: $st" }
+
 # bad arguments never fail (their usage line on stderr is expected, so stderr must not stop this test)
 $ErrorActionPreference = 'Continue'
-foreach ($a in @(@(), @('gemini', 'session-start'), @('codex', 'nope'))) {
+foreach ($a in @(@(), @('gemini', 'session-start'), @('codex', 'nope'), @('antigravity', 'nope'))) {
     & powershell -NoProfile -ExecutionPolicy Bypass -File $script @a 2>$null | Out-Null
     if ($LASTEXITCODE -eq 0) { Ok } else { Bad "bad args '$($a -join ' ')': exit $LASTEXITCODE" }
 }
 
-# The plugin copy matches the shared script
-$copy = Join-Path $here 'codex\orbtile-start\skills\orbtile-status\scripts\orbtile.ps1'
-if ((Get-FileHash $script).Hash -eq (Get-FileHash $copy).Hash) { Ok } else { Bad 'codex plugin copy of orbtile.ps1 differs from shared/orbtile.ps1' }
+# The plugin copies match the shared script
+foreach ($plugin in 'codex', 'antigravity') {
+    $copy = Join-Path $here "$plugin\orbtile-start\skills\orbtile-status\scripts\orbtile.ps1"
+    if ((Get-FileHash $script).Hash -eq (Get-FileHash $copy).Hash) { Ok } else { Bad "$plugin plugin copy of orbtile.ps1 differs from shared/orbtile.ps1" }
+}
 
 Remove-Item -Recurse -Force $tmp
 Write-Output "passed $($script:pass), failed $($script:fail)"

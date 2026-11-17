@@ -11,7 +11,7 @@ A small starter for [Orbtile](https://orbtile.com), the app that shows the live 
 ## What it does not do
 
 - It sends nothing anywhere. It only reads local files: your Codex `hooks.json` and the usual app folders.
-- It never blocks a session. The hook always exits successfully, usually in a few milliseconds, and Codex stops it after 5 seconds at most.
+- It never blocks a session. The hook always exits successfully, usually in a few milliseconds, and Codex stops it after 10 seconds at most.
 - It is not Orbtile. The app itself installs its own Codex hooks when you connect Codex in Orbtile.
 
 ## Install

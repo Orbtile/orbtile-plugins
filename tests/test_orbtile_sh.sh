@@ -12,7 +12,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 # run <agent> <case-name> <config text or ""> [extra env assignments...] -> stdout of session-start.
-# The config text goes to Claude's settings.json or Codex's hooks.json.
+# The config text goes to Claude's settings.json or Codex's hooks.json (Antigravity has its own helper below).
 run() {
     agent=$1; name=$2; config=$3; shift 3
     d="$tmp/$agent-$name"
@@ -146,6 +146,63 @@ expect_message claude-windows-app "$(run claude windows-app '' ORBTILE_START_OS=
 mkdir -p "$tmp/codex-windows-app/home/AppData/Local/Orbtile"
 expect_silent codex-windows-app "$(run codex windows-app '' ORBTILE_START_OS=MINGW64_NT-10.0-26100 LOCALAPPDATA="$tmp/codex-windows-app/home/AppData/Local")"
 
+# --- Antigravity: ~/.gemini/config/hooks.json. Skills only (no hook in the plugin), so only status is used.
+# ag_status <case> <hooks.json text or ""> [extra env...] -> stdout of status.
+ag_status() {
+    name=$1; config=$2; shift 2
+    d="$tmp/antigravity-$name"
+    mkdir -p "$d/home/.gemini/config" "$d/apps"
+    [ -n "$config" ] && printf '%s\n' "$config" > "$d/home/.gemini/config/hooks.json"
+    env -i PATH="/usr/bin:/bin" HOME="$d/home" ORBTILE_START_APPS_DIR="$d/apps" ORBTILE_START_OS=Darwin "$@" sh "$script" antigravity status
+}
+ag_mac_hooks='{
+  "orbtile-status": {
+    "Stop": [
+      { "type": "command", "command": "'"'"'/Users/u/Library/Application Support/Orbtile/bin/orbtile-antigravity-hook'"'"' Stop", "timeout": 3 }
+    ]
+  }
+}'
+st=$(ag_status no-app '')
+case "$st" in "Orbtile setup check for Antigravity"*"not found on this computer"*"Antigravity hooks: off (optional: Orbtile reads Antigravity sessions without them)"*"Next step: download Orbtile from $dl") ok;; *) bad "antigravity-status-no-app: $st";; esac
+st=$(ag_status mac-hooks "$ag_mac_hooks")
+case "$st" in *"Orbtile's Antigravity hooks: on (Orbtile hooks in"*"Next step: none. Orbtile is set up. You can remove the orbtile-start plugin from Antigravity.") ok;; *) bad "antigravity-status-mac-hooks: $st";; esac
+case "$st" in *"trust them"*|*"in /hooks"*) bad "antigravity-status-mac-hooks: Codex trust note shown";; *) ok;; esac
+st=$(ag_status windows-hooks '{"orbtile-status":{"Stop":[{"type":"process","command":"C:/Program Files/Orbtile/Orbtile.HookHelper.exe","args":["--orbtile-agent","antigravity","--event","Stop"]}]}}' ORBTILE_START_OS=MINGW64_NT-10.0-26100)
+case "$st" in *"Antigravity hooks: on"*"Next step: none"*) ok;; *) bad "antigravity-status-windows-hooks: $st";; esac
+mkdir -p "$tmp/antigravity-app/apps/Orbtile.app"
+st=$(ag_status app '')
+case "$st" in *"found at"*"hooks: off (optional"*"Next step: none. Orbtile is set up."*) ok;; *) bad "antigravity-status-app: $st";; esac
+st=$(ag_status codex-marker '{"x":"orbtile-codex-hook"}')
+case "$st" in *"Antigravity hooks: off"*"Next step: download"*) ok;; *) bad "antigravity-status-codex-marker: $st";; esac
+st=$(ag_status linux "$ag_mac_hooks" ORBTILE_START_OS=Linux)
+case "$st" in *"not on this system"*) ok;; *) bad "antigravity-status-linux: $st";; esac
+st=$(ag_status linux-none '' ORBTILE_START_OS=Linux)
+case "$st" in *"Next step: none here. Orbtile runs on macOS and Windows."*) ok;; *) bad "antigravity-status-linux-none: $st";; esac
+case "$st" in *download*) bad "antigravity-status-linux-none: mentions a download";; *) ok;; esac
+
+# Antigravity plugin manifest: the fields Antigravity's directory asks for, and a square logo of at least 128 px.
+if python3 -I - "$here/antigravity/orbtile-start" <<'PY'
+import json, struct, sys, os
+root = sys.argv[1]
+m = json.load(open(os.path.join(root, "plugin.json")))
+for k in ("name", "displayName", "description", "version", "logo", "suggestedPrompts", "author"):
+    assert m.get(k), k
+assert m["name"] == "orbtile-start"
+assert not m["name"].lower().startswith(("antigravity", "gemini", "claude", "cursor"))
+assert 1 <= len(m["suggestedPrompts"]) <= 3
+assert m["author"]["name"] == "Orbtile Team"
+png = open(os.path.join(root, m["logo"]), "rb").read(24)
+assert png[:8] == b"\x89PNG\r\n\x1a\n"
+w, h = struct.unpack(">II", png[16:24])
+assert w == h and w >= 128, (w, h)
+assert os.path.isfile(os.path.join(root, "README.md"))
+assert os.path.isfile(os.path.join(root, "skills", "orbtile-status", "SKILL.md"))
+PY
+then ok; else bad "antigravity/orbtile-start/plugin.json or its logo"; fi
+[ -x "$here/antigravity/orbtile-start/skills/orbtile-status/scripts/orbtile.sh" ] && ok || bad "antigravity copy of orbtile.sh is not executable"
+# No hooks of its own: the Antigravity starter only answers when asked.
+if [ -e "$here/antigravity/orbtile-start/hooks.json" ] || [ -e "$here/antigravity/orbtile-start/hooks" ]; then bad "antigravity plugin ships hooks"; else ok; fi
+
 # --- Codex hook wrapper (shared/orbtile-hook.cmd): one file that sh and cmd both run. Codex starts it as
 # "<path> <PLUGIN_DATA>" (PowerShell on Windows does not get PLUGIN_DATA in its environment).
 wrapper="$here/shared/orbtile-hook.cmd"
@@ -170,16 +227,18 @@ env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" >/dev/null 2>&1 && ok || ba
 env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" gemini session-start >/dev/null 2>&1 && ok || bad "unknown agent exit code"
 
 # --- Plugin copies match the shared script
-for copy in claude/orbtile-start/scripts/orbtile.sh codex/orbtile-start/skills/orbtile-status/scripts/orbtile.sh; do
+for copy in claude/orbtile-start/scripts/orbtile.sh codex/orbtile-start/skills/orbtile-status/scripts/orbtile.sh \
+            antigravity/orbtile-start/skills/orbtile-status/scripts/orbtile.sh; do
     if cmp -s "$script" "$here/$copy"; then ok; else bad "$copy differs from shared/orbtile.sh (copy it again)"; fi
 done
 if cmp -s "$here/shared/orbtile-hook.cmd" "$here/codex/orbtile-start/skills/orbtile-status/scripts/orbtile-hook.cmd"; then ok
 else bad "codex/orbtile-start/skills/orbtile-status/scripts/orbtile-hook.cmd differs from shared/orbtile-hook.cmd (copy it again)"; fi
-if cmp -s "$here/shared/orbtile.ps1" "$here/codex/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1"; then ok
-else bad "codex/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1 differs from shared/orbtile.ps1 (copy it again)"; fi
+for copy in codex/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1 antigravity/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1; do
+    if cmp -s "$here/shared/orbtile.ps1" "$here/$copy"; then ok; else bad "$copy differs from shared/orbtile.ps1 (copy it again)"; fi
+done
 
 # --- Public copy rules: no em-dash anywhere in what ships
-if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/README.md"; then
+if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/antigravity" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/README.md"; then
     bad "em-dash in shipped files"
 else ok; fi
 
