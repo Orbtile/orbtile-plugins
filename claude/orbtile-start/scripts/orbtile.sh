@@ -16,17 +16,21 @@ download_url="https://orbtile.com/download"
 case "$agent" in
     claude)
         agent_name="Claude Code"
+        pitch="Orbtile shows your Claude Code sessions live on a keypad and lets you answer them from the keys"
         config_file="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
         state_dir="${CLAUDE_PLUGIN_DATA:-}"
         check_hint="run /orbtile to check setup"
         remove_hint="/plugin uninstall orbtile-start@orbtile-public"
+        hooks_optional=""
         ;;
     codex)
         agent_name="Codex"
+        pitch="Orbtile shows your Codex sessions live on a keypad"
         config_file="${CODEX_HOME:-$HOME/.codex}/hooks.json"
         state_dir="${PLUGIN_DATA:-}"
         check_hint="ask Codex to check your Orbtile setup"
         remove_hint="codex plugin remove orbtile-start@orbtile-public"
+        hooks_optional="Orbtile reads Codex sessions without them"  # Codex is a zero-install adapter in the app
         ;;
     *)
         echo "usage: orbtile.sh claude|codex session-start|status" >&2
@@ -86,6 +90,8 @@ app_running() {
 
 session_start() {
     [ -z "$(hook_marker)" ] || return 0
+    # Agents the app follows without hooks: an installed app is a set-up app.
+    if [ -n "$hooks_optional" ] && [ -n "$(app_path)" ]; then return 0; fi
     # Once a day at most. Without a writable state folder it still shows (the hook runs once per new session).
     today=$(( $(date +%s) / 86400 ))
     if [ -n "$state_dir" ]; then
@@ -95,7 +101,7 @@ session_start() {
     if [ -n "$(app_path)" ]; then
         msg="Orbtile is installed but not connected to $agent_name yet. Open Orbtile to connect it ($check_hint)."
     else
-        msg="Orbtile shows your $agent_name sessions live on a keypad and lets you answer them from the keys: $download_url ($check_hint)"
+        msg="$pitch: $download_url ($check_hint)"
     fi
     printf '{"systemMessage":"%s"}\n' "$msg"
 }
@@ -109,13 +115,16 @@ status() {
         running) echo "- Orbtile app: found (running)" ;;
         *) echo "- Orbtile app: found at $app" ;;
     esac
-    if [ -n "$marker" ]; then echo "- $agent_name integration: on ($marker in $config_file)"
+    if [ -n "$hooks_optional" ]; then
+        if [ -n "$marker" ]; then echo "- Orbtile's $agent_name hooks: on ($marker in $config_file)"
+        else echo "- Orbtile's $agent_name hooks: off (optional: $hooks_optional)"; fi
+    elif [ -n "$marker" ]; then echo "- $agent_name integration: on ($marker in $config_file)"
     else echo "- $agent_name integration: off (nothing from Orbtile in $config_file)"; fi
     if [ -n "$app" ] && [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
         if app_running; then echo "- Orbtile running: yes"; else echo "- Orbtile running: no"; fi
     fi
-    if [ -n "$marker" ]; then
-        if [ "$agent" = "codex" ]; then
+    if [ -n "$marker" ] || { [ -n "$hooks_optional" ] && [ -n "$app" ]; }; then
+        if [ "$agent" = "codex" ] && [ -n "$marker" ]; then
             echo "- Note: Codex runs Orbtile's hooks only after you trust them once in /hooks (Settings > Hooks in the Codex app)."
         fi
         echo "Next step: none. Orbtile is set up; this starter plugin stays quiet and can be removed with: $remove_hint"

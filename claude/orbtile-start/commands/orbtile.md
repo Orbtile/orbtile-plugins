@@ -1,6 +1,6 @@
 ---
 description: Check whether the Orbtile app is installed and connected to Claude Code
-allowed-tools: Bash(sh:*)
+allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/orbtile.sh" claude status)
 ---
 Local Orbtile setup check (read from this computer only):
 

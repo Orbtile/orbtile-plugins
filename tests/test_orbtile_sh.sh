@@ -90,11 +90,16 @@ for a in claude codex; do
     expect_message $a-once-a-day-first "$first" "$dl"
     expect_silent $a-once-a-day-second "$second"
 
-    # App installed but not connected: a different line, no download link.
+    # App installed, no hooks. Claude Code needs the app's plugin: a "not connected" line, no download link.
+    # Codex is zero-install in the app (Adapter.swift .zeroInstallMode): an installed app means silence.
     mkdir -p "$tmp/$a-app-installed/apps/Orbtile.app"
     out=$(run $a app-installed '')
-    expect_message $a-app-installed "$out" "installed but not connected"
-    case "$out" in *"$dl"*) bad "$a-app-installed: should not show the download link";; *) ok;; esac
+    if [ $a = claude ]; then
+        expect_message $a-app-installed "$out" "installed but not connected"
+        case "$out" in *"$dl"*) bad "$a-app-installed: should not show the download link";; *) ok;; esac
+    else
+        expect_silent $a-app-installed "$out"
+    fi
 
     # Unwritable state folder: still shows, still exits 0.
     case $a in claude) v=CLAUDE_PLUGIN_DATA;; codex) v=PLUGIN_DATA;; esac
@@ -112,7 +117,14 @@ st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/claude-no-settings/home" CLAUDE_CONF
 case "$st" in *"integration: off"*"Next step: download Orbtile from $dl"*) ok;; *) bad "claude-status-off: $st";; esac
 st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/codex-mac-hooks/home" CODEX_HOME="$tmp/codex-mac-hooks/config" \
     ORBTILE_START_APPS_DIR="$tmp/codex-mac-hooks/apps" sh "$script" codex status)
-case "$st" in *"Codex integration: on (Orbtile hooks"*"trust them once in /hooks"*"Next step: none"*) ok;; *) bad "codex-status-on: $st";; esac
+case "$st" in *"Orbtile's Codex hooks: on (Orbtile hooks"*"trust them once in /hooks"*"Next step: none"*) ok;; *) bad "codex-status-on: $st";; esac
+st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/codex-app-installed/home" CODEX_HOME="$tmp/codex-app-installed/config" \
+    ORBTILE_START_APPS_DIR="$tmp/codex-app-installed/apps" sh "$script" codex status)
+case "$st" in *"found at"*"hooks: off (optional: Orbtile reads Codex sessions without them)"*"Next step: none"*) ok;; *) bad "codex-status-zero-install: $st";; esac
+case "$st" in *"trust them"*) bad "codex-status-zero-install: trust note without hooks";; *) ok;; esac
+st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/codex-no-hooks/home" CODEX_HOME="$tmp/codex-no-hooks/config" \
+    ORBTILE_START_APPS_DIR="$tmp/codex-no-hooks/apps" sh "$script" codex status)
+case "$st" in *"not found"*"Next step: download Orbtile from $dl"*) ok;; *) bad "codex-status-no-app: $st";; esac
 
 # --- Bad arguments never fail
 env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" >/dev/null 2>&1 && ok || bad "no-args exit code"
