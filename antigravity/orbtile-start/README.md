@@ -15,7 +15,13 @@ A small starter for [Orbtile](https://orbtile.com), the app that shows the live 
 
 ## Install
 
-Install the `antigravity/orbtile-start` folder of [Orbtile/orbtile-plugins](https://github.com/Orbtile/orbtile-plugins) as an Antigravity plugin.
+Copy the `antigravity/orbtile-start` folder of [Orbtile/orbtile-plugins](https://github.com/Orbtile/orbtile-plugins) into Antigravity's plugin folder, `~/.gemini/config/plugins/orbtile-start`.
+
+Google's docs also give this command for the Antigravity CLI (from Google's docs; not yet tested by us):
+
+```
+agy plugin install https://github.com/Orbtile/orbtile-plugins/antigravity/orbtile-start
+```
 
 ## Requirements
 

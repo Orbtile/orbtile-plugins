@@ -250,7 +250,7 @@ then ok; else bad "zcode/orbtile-start manifest or files"; fi
 [ -x "$here/zcode/orbtile-start/skills/orbtile-status/scripts/orbtile.sh" ] && ok || bad "zcode copy of orbtile.sh is not executable"
 # Versions match across the plugins.
 v=$(grep -h '"version"' "$here/.claude-plugin/marketplace.json" "$here/claude/orbtile-start/.claude-plugin/plugin.json" "$here/codex/orbtile-start/.codex-plugin/plugin.json" \
-    "$here/antigravity/orbtile-start/plugin.json" "$here/zcode/orbtile-start/.zcode-plugin/plugin.json" | tr -d ' ,' | sort -u | wc -l)
+    "$here/antigravity/orbtile-start/plugin.json" "$here/zcode/orbtile-start/.zcode-plugin/plugin.json" "$here/marketplace.json" | tr -d ' ,' | sort -u | wc -l)
 [ "$v" -eq 1 ] && ok || bad "plugin versions differ"
 
 # --- Codex hook wrapper (shared/orbtile-hook.cmd): one file that sh and cmd both run. Codex starts it as
@@ -289,7 +289,7 @@ for copy in codex/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1 antigr
 done
 
 # --- Public copy rules: no em-dash anywhere in what ships
-if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/antigravity" "$here/zcode" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/README.md"; then
+if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/antigravity" "$here/zcode" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/marketplace.json" "$here/logitech" "$here/README.md"; then
     bad "em-dash in shipped files"
 else ok; fi
 
