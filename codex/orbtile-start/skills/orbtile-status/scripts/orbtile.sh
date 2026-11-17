@@ -13,6 +13,13 @@ agent="${1:-}"
 command="${2:-}"
 download_url="https://orbtile.com/download"
 
+# The Orbtile app runs on macOS and Windows. Elsewhere (Linux, WSL) the starter never points to a download.
+case "${ORBTILE_START_OS:-$(uname -s 2>/dev/null)}" in  # ORBTILE_START_OS: override for tests only
+    Darwin) platform=mac ;;
+    MINGW*|MSYS*|CYGWIN*|Windows*) platform=windows ;;
+    *) platform=other ;;
+esac
+
 case "$agent" in
     claude)
         agent_name="Claude Code"
@@ -83,12 +90,13 @@ app_path() {
 
 # Mac only: is Orbtile running? (false elsewhere)
 app_running() {
-    [ "$(uname -s 2>/dev/null)" = "Darwin" ] || return 1
+    [ "$platform" = mac ] || return 1
     [ -z "${ORBTILE_START_APPS_DIR:-}" ] || return 1  # tests describe the installed apps themselves
     pgrep -x Orbtile >/dev/null 2>&1 || pgrep -x "Orbtile Enterprise" >/dev/null 2>&1
 }
 
 session_start() {
+    [ "$platform" != other ] || return 0
     [ -z "$(hook_marker)" ] || return 0
     # Agents the app follows without hooks: an installed app is a set-up app.
     if [ -n "$hooks_optional" ] && [ -n "$(app_path)" ]; then return 0; fi
@@ -111,7 +119,8 @@ status() {
     app=$(app_path)
     echo "Orbtile setup check for $agent_name"
     case "$app" in
-        "") echo "- Orbtile app: not found on this computer" ;;
+        "") if [ "$platform" = other ]; then echo "- Orbtile app: runs on macOS and Windows, not on this system"
+            else echo "- Orbtile app: not found on this computer"; fi ;;
         running) echo "- Orbtile app: found (running)" ;;
         *) echo "- Orbtile app: found at $app" ;;
     esac
@@ -120,7 +129,7 @@ status() {
         else echo "- Orbtile's $agent_name hooks: off (optional: $hooks_optional)"; fi
     elif [ -n "$marker" ]; then echo "- $agent_name integration: on ($marker in $config_file)"
     else echo "- $agent_name integration: off (nothing from Orbtile in $config_file)"; fi
-    if [ -n "$app" ] && [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+    if [ -n "$app" ] && [ "$platform" = mac ]; then
         if app_running; then echo "- Orbtile running: yes"; else echo "- Orbtile running: no"; fi
     fi
     if [ -n "$marker" ] || { [ -n "$hooks_optional" ] && [ -n "$app" ]; }; then
@@ -130,6 +139,8 @@ status() {
         echo "Next step: none. Orbtile is set up; this starter plugin stays quiet and can be removed with: $remove_hint"
     elif [ -n "$app" ]; then
         echo "Next step: open Orbtile and connect $agent_name in its settings."
+    elif [ "$platform" = other ]; then
+        echo "Next step: none here. Orbtile runs on macOS and Windows."
     else
         echo "Next step: download Orbtile from $download_url"
     fi

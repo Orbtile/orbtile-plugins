@@ -22,7 +22,7 @@ run() {
         codex) file="$d/config/hooks.json"; dirvar="CODEX_HOME=$d/config"; datavar="PLUGIN_DATA=$d/data" ;;
     esac
     [ -n "$config" ] && printf '%s\n' "$config" > "$file"
-    env -i PATH="/usr/bin:/bin:/usr/sbin:/sbin" HOME="$d/home" "$dirvar" "$datavar" ORBTILE_START_APPS_DIR="$d/apps" "$@" \
+    env -i PATH="/usr/bin:/bin:/usr/sbin:/sbin" HOME="$d/home" "$dirvar" "$datavar" ORBTILE_START_APPS_DIR="$d/apps" ORBTILE_START_OS=Darwin "$@" \
         sh "$script" "$agent" session-start
 }
 
@@ -109,22 +109,42 @@ for a in claude codex; do
 done
 
 # --- status
-st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/claude-mac-plugin-on/home" CLAUDE_CONFIG_DIR="$tmp/claude-mac-plugin-on/config" \
+st=$(env -i PATH="/usr/bin:/bin" ORBTILE_START_OS=Darwin HOME="$tmp/claude-mac-plugin-on/home" CLAUDE_CONFIG_DIR="$tmp/claude-mac-plugin-on/config" \
     ORBTILE_START_APPS_DIR="$tmp/claude-mac-plugin-on/apps" sh "$script" claude status)
 case "$st" in *"Claude Code integration: on (plugin orbtile@orbtile"*) ok;; *) bad "claude-status-on: $st";; esac
-st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/claude-no-settings/home" CLAUDE_CONFIG_DIR="$tmp/claude-no-settings/config" \
+st=$(env -i PATH="/usr/bin:/bin" ORBTILE_START_OS=Darwin HOME="$tmp/claude-no-settings/home" CLAUDE_CONFIG_DIR="$tmp/claude-no-settings/config" \
     ORBTILE_START_APPS_DIR="$tmp/claude-no-settings/apps" sh "$script" claude status)
 case "$st" in *"integration: off"*"Next step: download Orbtile from $dl"*) ok;; *) bad "claude-status-off: $st";; esac
-st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/codex-mac-hooks/home" CODEX_HOME="$tmp/codex-mac-hooks/config" \
+st=$(env -i PATH="/usr/bin:/bin" ORBTILE_START_OS=Darwin HOME="$tmp/codex-mac-hooks/home" CODEX_HOME="$tmp/codex-mac-hooks/config" \
     ORBTILE_START_APPS_DIR="$tmp/codex-mac-hooks/apps" sh "$script" codex status)
 case "$st" in *"Orbtile's Codex hooks: on (Orbtile hooks"*"trust them once in /hooks"*"Next step: none"*) ok;; *) bad "codex-status-on: $st";; esac
-st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/codex-app-installed/home" CODEX_HOME="$tmp/codex-app-installed/config" \
+st=$(env -i PATH="/usr/bin:/bin" ORBTILE_START_OS=Darwin HOME="$tmp/codex-app-installed/home" CODEX_HOME="$tmp/codex-app-installed/config" \
     ORBTILE_START_APPS_DIR="$tmp/codex-app-installed/apps" sh "$script" codex status)
 case "$st" in *"found at"*"hooks: off (optional: Orbtile reads Codex sessions without them)"*"Next step: none"*) ok;; *) bad "codex-status-zero-install: $st";; esac
 case "$st" in *"trust them"*) bad "codex-status-zero-install: trust note without hooks";; *) ok;; esac
-st=$(env -i PATH="/usr/bin:/bin" HOME="$tmp/codex-no-hooks/home" CODEX_HOME="$tmp/codex-no-hooks/config" \
+st=$(env -i PATH="/usr/bin:/bin" ORBTILE_START_OS=Darwin HOME="$tmp/codex-no-hooks/home" CODEX_HOME="$tmp/codex-no-hooks/config" \
     ORBTILE_START_APPS_DIR="$tmp/codex-no-hooks/apps" sh "$script" codex status)
 case "$st" in *"not found"*"Next step: download Orbtile from $dl"*) ok;; *) bad "codex-status-no-app: $st";; esac
+
+# --- Linux and other systems: the app does not run there, so no line and no download step
+for a in claude codex; do
+    expect_silent $a-linux "$(run $a linux '' ORBTILE_START_OS=Linux)"
+    st=$(env -i PATH="/usr/bin:/bin" ORBTILE_START_OS=Linux HOME="$tmp/$a-linux/home" CLAUDE_CONFIG_DIR="$tmp/$a-linux/config" \
+        CODEX_HOME="$tmp/$a-linux/config" ORBTILE_START_APPS_DIR="$tmp/$a-linux/apps" sh "$script" $a status)
+    case "$st" in *"runs on macOS and Windows, not on this system"*"Next step: none here. Orbtile runs on macOS and Windows."*) ok;; *) bad "$a-linux-status: $st";; esac
+    case "$st" in *download*|*"$dl"*) bad "$a-linux-status: mentions a download";; *) ok;; esac
+done
+# A Linux host the Mac app set up over SSH reports the integration as on.
+st=$(env -i PATH="/usr/bin:/bin" ORBTILE_START_OS=Linux HOME="$tmp/claude-remote-marketplace-path/home" \
+    CLAUDE_CONFIG_DIR="$tmp/claude-remote-marketplace-path/config" sh "$script" claude status)
+case "$st" in *"integration: on (Orbtile plugin folder"*"Next step: none. Orbtile is set up"*) ok;; *) bad "claude-linux-remote-status: $st";; esac
+
+# --- Windows shells (Git Bash reports MINGW64_NT-...): the app's data folder counts as installed
+expect_message claude-windows-no-app "$(run claude windows-no-app '' ORBTILE_START_OS=MINGW64_NT-10.0-26100)" "$dl"
+mkdir -p "$tmp/claude-windows-app/home/AppData/Local/Orbtile"
+expect_message claude-windows-app "$(run claude windows-app '' ORBTILE_START_OS=MINGW64_NT-10.0-26100 LOCALAPPDATA="$tmp/claude-windows-app/home/AppData/Local")" "installed but not connected"
+mkdir -p "$tmp/codex-windows-app/home/AppData/Local/Orbtile"
+expect_silent codex-windows-app "$(run codex windows-app '' ORBTILE_START_OS=MINGW64_NT-10.0-26100 LOCALAPPDATA="$tmp/codex-windows-app/home/AppData/Local")"
 
 # --- Bad arguments never fail
 env -i PATH="/usr/bin:/bin" HOME="$tmp" sh "$script" >/dev/null 2>&1 && ok || bad "no-args exit code"

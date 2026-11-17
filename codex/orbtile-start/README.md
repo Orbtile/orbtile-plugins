@@ -29,7 +29,7 @@ codex plugin remove orbtile-start@orbtile-public
 
 ## Requirements
 
-macOS or Linux. Uses only `sh`, `grep`, `tr` and `date`.
+macOS, where the Orbtile app runs. Uses only `sh`, `grep`, `tr` and `date`. On other systems the starter stays quiet.
 
 ## License
 

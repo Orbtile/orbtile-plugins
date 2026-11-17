@@ -29,7 +29,7 @@ A small starter for [Orbtile](https://orbtile.com), the app that shows the live 
 
 ## Requirements
 
-macOS or Linux. Uses only `sh`, `grep`, `tr` and `date`.
+macOS, where the Orbtile app runs. Uses only `sh`, `grep`, `tr` and `date`. On other systems the starter stays quiet.
 
 ## License
 

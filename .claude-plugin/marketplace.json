@@ -12,8 +12,11 @@
       "name": "orbtile-start",
       "source": "./claude/orbtile-start",
       "description": "Checks whether the Orbtile app is set up for Claude Code (/orbtile) and points you to it until it is. Quiet once Orbtile is connected.",
-      "version": "0.1.0",
-      "author": { "name": "Orbtile Team", "url": "https://orbtile.com" },
+      "version": "0.1.1",
+      "author": {
+        "name": "Orbtile Team",
+        "url": "https://orbtile.com"
+      },
       "homepage": "https://orbtile.com",
       "license": "MIT",
       "category": "productivity"
