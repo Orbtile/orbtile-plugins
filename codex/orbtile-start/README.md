@@ -6,7 +6,7 @@ A small starter for [Orbtile](https://orbtile.com), the app that shows the live 
 
 - The `orbtile-status` skill checks this computer: is the Orbtile app installed, is it connected to Codex, and is it running. It tells you the one next step, if any. Ask Codex to "check my Orbtile setup".
 - At the start of a new session it shows one line that points to Orbtile, at most once a day. Codex runs a plugin's hook only after you trust it in `/hooks` (Settings > Hooks in the Codex app). If you leave it untrusted, the skill still works and the line never shows.
-- Once Orbtile is connected to Codex, the line stops for good. You can then remove this plugin.
+- Once the Orbtile app is installed, the line stops for good: Orbtile follows Codex sessions without extra setup. You can then remove this plugin.
 
 ## What it does not do
 

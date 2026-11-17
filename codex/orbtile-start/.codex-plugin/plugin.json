@@ -1,7 +1,7 @@
 {
   "name": "orbtile-start",
   "version": "0.1.0",
-  "description": "Checks whether the Orbtile app is set up for Codex and points you to it until it is. Quiet once Orbtile is connected.",
+  "description": "Checks whether the Orbtile app is set up for Codex and points you to it until it is. Quiet once Orbtile is installed.",
   "author": {
     "name": "Orbtile Team",
     "url": "https://orbtile.com"
@@ -17,7 +17,7 @@
   "interface": {
     "displayName": "Orbtile Start",
     "shortDescription": "Check your Orbtile setup",
-    "longDescription": "Checks whether the Orbtile app is installed and connected to Codex, and tells you the next step. Until Orbtile is connected it shows one line a day at session start that points to orbtile.com/download. It reads local files only and sends nothing anywhere.",
+    "longDescription": "Checks whether the Orbtile app is installed and connected to Codex, and tells you the next step. Until Orbtile is installed it shows one line a day at session start that points to orbtile.com/download. It reads local files only and sends nothing anywhere.",
     "developerName": "Orbtile Team",
     "category": "Developer Tools",
     "websiteURL": "https://orbtile.com",
