@@ -66,6 +66,8 @@ expect_message claude-lookalike "$(run claude lookalike '{"enabledPlugins":{"xor
 expect_message claude-broken-json "$(run claude broken-json '{"enabledPlugins": {"orbtile@orbt')" "$dl"
 # Run by Codex (which loads Claude-format plugins and sets PLUGIN_ROOT): no Claude Code line in a Codex session.
 expect_silent claude-under-codex "$(run claude under-codex '' PLUGIN_ROOT=/tmp/plugins/orbtile-start)"
+# Run by ZCode (it can pick up this repo's Claude marketplace and sets ZCODE_PLUGIN_ROOT): no Claude Code line there either.
+expect_silent claude-under-zcode "$(run claude under-zcode '' ZCODE_PLUGIN_ROOT=/tmp/plugins/orbtile-start)"
 # A Codex marker in Claude's settings does not count, and the other way round (below).
 expect_message claude-codex-marker "$(run claude codex-marker '{"x":"orbtile-codex-hook"}')" "$dl"
 
@@ -250,7 +252,7 @@ then ok; else bad "zcode/orbtile-start manifest or files"; fi
 [ -x "$here/zcode/orbtile-start/skills/orbtile-status/scripts/orbtile.sh" ] && ok || bad "zcode copy of orbtile.sh is not executable"
 # Versions match across the plugins.
 v=$(grep -h '"version"' "$here/.claude-plugin/marketplace.json" "$here/claude/orbtile-start/.claude-plugin/plugin.json" "$here/codex/orbtile-start/.codex-plugin/plugin.json" \
-    "$here/antigravity/orbtile-start/plugin.json" "$here/zcode/orbtile-start/.zcode-plugin/plugin.json" "$here/marketplace.json" | tr -d ' ,' | sort -u | wc -l)
+    "$here/antigravity/orbtile-start/plugin.json" "$here/zcode/orbtile-start/.zcode-plugin/plugin.json" "$here/zcode/marketplace.json" | tr -d ' ,' | sort -u | wc -l)
 [ "$v" -eq 1 ] && ok || bad "plugin versions differ"
 
 # --- Codex hook wrapper (shared/orbtile-hook.cmd): one file that sh and cmd both run. Codex starts it as
@@ -289,7 +291,7 @@ for copy in codex/orbtile-start/skills/orbtile-status/scripts/orbtile.ps1 antigr
 done
 
 # --- Public copy rules: no em-dash anywhere in what ships
-if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/antigravity" "$here/zcode" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/marketplace.json" "$here/logitech" "$here/README.md"; then
+if grep -rq "$(printf '\342\200\224')" "$here/claude" "$here/codex" "$here/antigravity" "$here/zcode" "$here/shared" "$here/.claude-plugin" "$here/.agents" "$here/logitech" "$here/README.md"; then
     bad "em-dash in shipped files"
 else ok; fi
 

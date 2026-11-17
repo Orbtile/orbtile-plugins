@@ -7,7 +7,7 @@ Starter plugins that help you set up [Orbtile](https://orbtile.com) for your cod
 | Claude Code | [`orbtile-start`](claude/orbtile-start) | `/plugin marketplace add Orbtile/orbtile-plugins` then `/plugin install orbtile-start@orbtile-public` |
 | Codex | [`orbtile-start`](codex/orbtile-start) | `codex plugin marketplace add Orbtile/orbtile-plugins` then `codex plugin add orbtile-start@orbtile-public` |
 | Antigravity | [`orbtile-start`](antigravity/orbtile-start) (skill only) | Copy the `antigravity/orbtile-start` folder into Antigravity's plugin folder, `~/.gemini/config/plugins/orbtile-start`. Google's docs also give `agy plugin install https://github.com/Orbtile/orbtile-plugins/antigravity/orbtile-start` (from Google's docs; not yet tested by us). |
-| ZCode | [`orbtile-start`](zcode/orbtile-start) (skill only) | Pending in [zai-org/zcode-plugins#198](https://github.com/zai-org/zcode-plugins/pull/198). Until then, from a clone of this repository: `zcode plugins marketplace add <path to the clone>` then `zcode plugins install orbtile-start@orbtile-public` |
+| ZCode | [`orbtile-start`](zcode/orbtile-start) (skill only) | Pending in [zai-org/zcode-plugins#198](https://github.com/zai-org/zcode-plugins/pull/198). Until then, from a clone of this repository: `zcode plugins marketplace add <path to the clone>/zcode`, then `zcode plugins install orbtile-start@orbtile-public` and `zcode plugins enable orbtile-start@orbtile-public` |
 
 ## Logi plugin for MX Creative Keypad
 
