@@ -1,7 +1,7 @@
 {
   "name": "orbtile-start",
-  "version": "0.1.3",
-  "description": "Checks whether the Orbtile app is set up for Claude Code (/orbtile) and points you to it until it is. Quiet once Orbtile is connected.",
+  "version": "0.1.4",
+  "description": "/orbtile checks whether the Orbtile app is installed and connected to Claude Code, and gives the one next step. A once-a-day reminder stops for good once Orbtile is connected.",
   "author": {
     "name": "Orbtile Team",
     "url": "https://orbtile.com"
