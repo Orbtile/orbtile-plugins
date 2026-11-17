@@ -64,6 +64,8 @@ expect_silent claude-windows-hooks "$(run claude windows-hooks '{"hooks":{"Stop"
 expect_message claude-only-starter "$(run claude only-starter '{"enabledPlugins":{"orbtile-start@orbtile-public":true}}')" "$dl"
 expect_message claude-lookalike "$(run claude lookalike '{"enabledPlugins":{"xorbtile@orbtile":true,"orbtile@orbtile-public":true}}')" "$dl"
 expect_message claude-broken-json "$(run claude broken-json '{"enabledPlugins": {"orbtile@orbt')" "$dl"
+# Run by Codex (which loads Claude-format plugins and sets PLUGIN_ROOT): no Claude Code line in a Codex session.
+expect_silent claude-under-codex "$(run claude under-codex '' PLUGIN_ROOT=/tmp/plugins/orbtile-start)"
 # A Codex marker in Claude's settings does not count, and the other way round (below).
 expect_message claude-codex-marker "$(run claude codex-marker '{"x":"orbtile-codex-hook"}')" "$dl"
 
