@@ -1,0 +1,17 @@
+{
+  "description": "One line at session start that points to the Orbtile app, at most once a day. Silent once Orbtile is connected to Claude Code.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/orbtile.sh\" session-start",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
